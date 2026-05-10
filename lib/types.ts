@@ -16,5 +16,12 @@ export interface Evento {
   tipo: PlayType
   jugador: string
   equipo: 'local' | 'visitante'
+  confianza: 'alta' | 'media'
   descripcion: string
+}
+
+export interface AnalisisResult {
+  calidad: 1 | 2 | 3
+  descripcion_calidad: string
+  eventos: Evento[]
 }

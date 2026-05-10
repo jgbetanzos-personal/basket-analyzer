@@ -9,11 +9,20 @@ import type { Evento } from '@/lib/types'
 
 type Status = 'idle' | 'uploading' | 'analyzing' | 'done' | 'error'
 
+const CALIDAD_LABELS: Record<number, { label: string; color: string; emoji: string }> = {
+  1: { label: 'Calidad baja', color: 'text-red-400 bg-red-500/10 border-red-500/20', emoji: '🔴' },
+  2: { label: 'Calidad media', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', emoji: '🟡' },
+  3: { label: 'Calidad alta', color: 'text-green-400 bg-green-500/10 border-green-500/20', emoji: '🟢' },
+}
+
 export default function HomePage() {
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<Status>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [eventos, setEventos] = useState<Evento[]>([])
+  const [calidad, setCalidad] = useState<number | null>(null)
+  const [descripcionCalidad, setDescripcionCalidad] = useState<string>('')
+  const [narrativa, setNarrativa] = useState<string>('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   async function handleAnalizar() {
@@ -23,6 +32,8 @@ export default function HomePage() {
     setUploadProgress(0)
     setErrorMsg(null)
     setEventos([])
+    setCalidad(null)
+    setDescripcionCalidad('')
 
     try {
       const { fileUri, mimeType } = await uploadVideo(file, (pct) => {
@@ -42,8 +53,11 @@ export default function HomePage() {
         throw new Error((data as { error?: string }).error ?? `Server error ${res.status}`)
       }
 
-      const data = await res.json()
-      setEventos((data as { eventos: Evento[] }).eventos ?? [])
+      const data = await res.json() as { calidad: number; descripcion_calidad: string; narrativa?: string; eventos: Evento[] }
+      setCalidad(data.calidad ?? 1)
+      setDescripcionCalidad(data.descripcion_calidad ?? '')
+      setNarrativa(data.narrativa ?? '')
+      setEventos(data.eventos ?? [])
       setStatus('done')
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error desconocido')
@@ -56,6 +70,9 @@ export default function HomePage() {
     setStatus('idle')
     setUploadProgress(0)
     setEventos([])
+    setCalidad(null)
+    setDescripcionCalidad('')
+    setNarrativa('')
     setErrorMsg(null)
   }
 
@@ -184,6 +201,19 @@ export default function HomePage() {
               )}
             </div>
 
+            {/* Video quality badge */}
+            {status === 'done' && calidad !== null && (
+              <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${CALIDAD_LABELS[calidad]?.color}`}>
+                <span className="text-lg leading-none mt-0.5">{CALIDAD_LABELS[calidad]?.emoji}</span>
+                <div>
+                  <p className="text-sm font-semibold">{CALIDAD_LABELS[calidad]?.label} — análisis adaptado</p>
+                  {descripcionCalidad && (
+                    <p className="text-xs opacity-80 mt-0.5">{descripcionCalidad}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="bg-[#13131a] border border-[#2a2a3a] rounded-2xl p-5 min-h-96">
               {status === 'idle' && !file && (
                 <div className="flex flex-col items-center justify-center h-80 gap-3 text-gray-600">
@@ -215,8 +245,20 @@ export default function HomePage() {
                 </div>
               )}
 
-              {(status === 'done' || status === 'error') && (
+              {(status === 'done' || status === 'error') && narrativa && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Descripción del vídeo</p>
+                  <p className="text-sm text-gray-300 leading-relaxed">{narrativa}</p>
+                </div>
+              )}
+              {(status === 'done' || status === 'error') && eventos.length > 0 && (
                 <PlaysTimeline eventos={eventos} />
+              )}
+              {status === 'done' && !narrativa && eventos.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-60 gap-3 text-gray-600">
+                  <span className="text-4xl opacity-30">🤷</span>
+                  <p className="text-sm">No se detectaron eventos con suficiente certeza</p>
+                </div>
               )}
             </div>
 

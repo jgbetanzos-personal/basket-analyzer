@@ -21,25 +21,47 @@ async function waitForFileActive(fileUri: string, apiKey: string, maxWaitMs = 60
   throw new Error('Timed out waiting for file to become ACTIVE')
 }
 
-const PROMPT = `Eres un analista experto en baloncesto. Analiza este vídeo de un partido e identifica todos los eventos importantes.
+const PROMPT = `Eres un sistema de análisis de vídeo deportivo. Sigue estos dos pasos.
 
-Devuelve SOLO un JSON válido con este formato exacto, sin texto adicional:
+## PASO 1: Evalúa la calidad del vídeo
+
+Asigna calidad del 1 al 3:
+- calidad 1 (baja): móvil desde grada, jugadores pequeños, dorsales ilegibles
+- calidad 2 (media): cámara fija, jugadores distinguibles, pocos dorsales legibles
+- calidad 3 (alta): TV o cámara profesional, dorsales visibles, acción clara
+
+## PASO 2: Responde según la calidad
+
+**Si calidad = 1 o 2:**
+No intentes identificar jugadas específicas. En su lugar, describe objetivamente lo que VES en el vídeo:
+- Colores de camisetas de cada equipo
+- Ritmo general del partido (pausa, ataque, tiempo muerto...)
+- Ambiente (pabellón lleno, exterior, iluminación)
+- Cualquier momento llamativo que se vea claramente (celebración, caída, etc.)
+NO menciones jugadas concretas, puntos ni estadísticas. Solo describe lo observable.
+
+**Si calidad = 3:**
+Identifica eventos concretos con timestamp. Para cada evento describe la evidencia visual exacta que lo confirma.
+
+Devuelve SOLO este JSON sin texto adicional:
 {
+  "calidad": 1,
+  "descripcion_calidad": "frase corta sobre la calidad",
+  "narrativa": "descripción en 3-5 frases de lo que se observa en el vídeo (solo para calidad 1 y 2, vacío si calidad 3)",
   "eventos": [
     {
       "tiempo": "00:23",
       "tipo": "canasta_2pts",
-      "jugador": "número de dorsal o descripción del jugador",
-      "equipo": "local",
-      "descripcion": "descripción breve en español"
+      "jugador": "descripción o dorsal si visible",
+      "equipo": "local o visitante",
+      "confianza": "alta o media",
+      "descripcion": "evidencia visual concreta que confirma este evento"
     }
   ]
 }
 
-Tipos de evento posibles: canasta_2pts, canasta_3pts, tiro_libre_anotado, tiro_libre_fallado, rebote_ofensivo, rebote_defensivo, asistencia, tapon, robo, falta, perdida
-
-Si no puedes identificar el nombre del jugador usa el número de dorsal. Si tampoco ves el dorsal, describe físicamente al jugador (ej: "jugador alto local", "base visitante").
-El equipo puede ser "local" o "visitante".`
+Tipos posibles: canasta_2pts, canasta_3pts, tiro_libre_anotado, tiro_libre_fallado, rebote_ofensivo, rebote_defensivo, asistencia, tapon, robo, falta, perdida
+Para calidad 1 o 2, eventos debe ser un array vacío [].`
 
 export async function POST(request: Request) {
   try {
@@ -74,11 +96,10 @@ export async function POST(request: Request) {
 
     const text = result.response.text()
 
-    let parsed: { eventos: Evento[] }
+    let parsed: { calidad: number; descripcion_calidad: string; narrativa?: string; eventos: Evento[] }
     try {
       parsed = JSON.parse(text)
     } catch {
-      // Try to extract JSON from the response if it has extra text
       const match = text.match(/\{[\s\S]*\}/)
       if (!match) {
         return Response.json(
@@ -89,7 +110,12 @@ export async function POST(request: Request) {
       parsed = JSON.parse(match[0])
     }
 
-    return Response.json({ eventos: parsed.eventos ?? [] })
+    return Response.json({
+      calidad: parsed.calidad ?? 1,
+      descripcion_calidad: parsed.descripcion_calidad ?? '',
+      narrativa: parsed.narrativa ?? '',
+      eventos: parsed.eventos ?? [],
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return Response.json({ error: message }, { status: 500 })
