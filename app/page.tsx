@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { VideoDropzone } from '@/components/video-dropzone'
 import { VideoPlayer } from '@/components/video-player'
 import { PlaysTimeline } from '@/components/plays-timeline'
+import { CostEstimate } from '@/components/cost-estimate'
 import { uploadVideo } from '@/lib/upload-video'
+import { MODELS, getVideoDuration, type ModelPricing } from '@/lib/cost'
 import type { Evento } from '@/lib/types'
 
 type Status = 'idle' | 'uploading' | 'analyzing' | 'done' | 'error'
@@ -24,6 +26,8 @@ export default function HomePage() {
   const [descripcionCalidad, setDescripcionCalidad] = useState<string>('')
   const [narrativa, setNarrativa] = useState<string>('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [videoDuration, setVideoDuration] = useState<number | null>(null)
+  const [selectedModel, setSelectedModel] = useState<ModelPricing>(MODELS[0])
 
   async function handleAnalizar() {
     if (!file) return
@@ -76,6 +80,11 @@ export default function HomePage() {
     setErrorMsg(null)
   }
 
+  useEffect(() => {
+    if (!file) { setVideoDuration(null); return }
+    getVideoDuration(file).then(setVideoDuration).catch(() => setVideoDuration(null))
+  }, [file])
+
   const isLoading = status === 'uploading' || status === 'analyzing'
 
   return (
@@ -113,6 +122,15 @@ export default function HomePage() {
                 </h2>
                 <VideoPlayer file={file} />
               </section>
+            )}
+
+            {/* Cost estimate */}
+            {file && videoDuration && status === 'idle' && (
+              <CostEstimate
+                durationSeconds={videoDuration}
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+              />
             )}
 
             {/* Action buttons */}
