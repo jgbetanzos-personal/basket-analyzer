@@ -65,7 +65,7 @@ Para calidad 1 o 2, eventos debe ser un array vacío [].`
 
 export async function POST(request: Request) {
   try {
-    const { fileUri, mimeType } = await request.json()
+    const { fileUri, mimeType, modelId } = await request.json()
 
     if (!fileUri || !mimeType) {
       return Response.json(
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.GEMINI_API_KEY!
     await waitForFileActive(fileUri, apiKey)
 
-    const model = getModel()
+    const model = getModel(modelId ?? 'gemini-2.5-flash')
 
     const result = await model.generateContent({
       contents: [

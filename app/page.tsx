@@ -49,7 +49,7 @@ export default function HomePage() {
       const res = await fetch('/api/analizar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileUri, mimeType }),
+        body: JSON.stringify({ fileUri, mimeType, modelId: selectedModel.id }),
       })
 
       if (!res.ok) {
